@@ -1,0 +1,11 @@
+logging:
+  level:
+    com.example: debug
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: <todo>
+            client-secret: <todo>
