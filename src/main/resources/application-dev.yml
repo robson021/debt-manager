@@ -1,0 +1,16 @@
+logging:
+  level:
+    com.github.robson021: debug
+spring:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      port: 8082
+      settings.trace: false
+      settings.web-allow-others: true
+  datasource:
+    url: jdbc:h2:mem:mydb
+    username: sa
+    password: password
+    driverClassName: org.h2.Driver
