@@ -2,13 +2,9 @@ package com.github.robson021.debtmanager.db
 
 import org.springframework.data.annotation.Id
 import org.springframework.data.relational.core.mapping.Table
-import java.math.BigDecimal
 
-@Table("USERS")
-data class User(
+@Table("GROUPS")
+data class Group(
     @Id val id: Long,
-    val sub: BigDecimal,
-    val name: String,
-    val email: String,
-    val groups: List<Group>,
+    val groupName: String,
 )

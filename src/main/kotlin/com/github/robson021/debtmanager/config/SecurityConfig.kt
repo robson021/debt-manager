@@ -17,7 +17,7 @@ class SecurityConfig {
         http
             .authorizeExchange { authorize: ServerHttpSecurity.AuthorizeExchangeSpec ->
                 authorize
-                    .pathMatchers("/api/**").hasRole("ACTIVE-USER")
+//                    .pathMatchers("/api/**").hasRole("ACTIVE-USER")
                     .anyExchange().authenticated()
             }.oauth2Login(Customizer.withDefaults())
         return http.build()

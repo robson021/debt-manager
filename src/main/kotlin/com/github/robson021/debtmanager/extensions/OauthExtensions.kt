@@ -3,6 +3,7 @@ package com.github.robson021.debtmanager.extensions
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User
+import java.math.BigDecimal
 
 fun OAuth2AuthenticationToken.userDetails(): GoogleUser {
     val principal = this.principal as DefaultOAuth2User
@@ -20,7 +21,7 @@ fun OAuth2AuthenticationToken.userDetails(): GoogleUser {
 }
 
 private fun fromGoogle(attr: Map<String, Any>, scope: String, email: String, token: String) = GoogleUser(
-    attr["sub"] as String,
+    (attr["sub"] as String).toBigDecimal(),
     attr["name"] as String,
     attr["picture"] as String,
     scope,
@@ -29,7 +30,7 @@ private fun fromGoogle(attr: Map<String, Any>, scope: String, email: String, tok
 )
 
 data class GoogleUser(
-    val id: String,
+    val sub: BigDecimal,
     val name: String,
     val avatar: String,
     val scope: String,
