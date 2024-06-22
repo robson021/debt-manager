@@ -21,7 +21,7 @@ class DebtService(
             throw RuntimeException("Group name cannot be blank")
         }
 
-        val user = userRepository.findBySub(owner.sub).awaitSingle()
+        val user = userRepository.findBySub(owner.sub)
 
         val groupId = dbClient.sql("insert into GROUPS (name) values (:name)")
             .bind("name", groupName)
