@@ -1,6 +1,9 @@
 package com.github.robson021.debtmanager
 
 import com.github.robson021.debtmanager.extensions.userDetails
+import com.github.robson021.debtmanager.service.UserService
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
@@ -16,18 +19,28 @@ import org.springframework.web.bind.annotation.RestController
 @SpringBootApplication
 class DebtManagerApplication
 
+
+fun <R : Any> R.logger(): Lazy<Logger> = lazy { LoggerFactory.getLogger(this::class.java.name) }
+
 fun main(args: Array<String>) {
     runApplication<DebtManagerApplication>(*args)
 }
 
 @RestController
-class PublicController() {
+class PublicController(
+    private val userService: UserService,
+) {
 
     @GetMapping("/hello")
-    suspend fun hello(token: OAuth2AuthenticationToken) = "Hello ${token.name}"
+    suspend fun hello(token: OAuth2AuthenticationToken) = "Hello, ${token.userDetails().name}!"
 
     @GetMapping("/user-details")
     suspend fun userDetails(token: OAuth2AuthenticationToken) = token.userDetails()
+
+    @GetMapping("/activate-user")
+    suspend fun activateUser(token: OAuth2AuthenticationToken) {
+        userService.addGoogleUserIfNotPresent(token.userDetails())
+    }
 
 }
 
