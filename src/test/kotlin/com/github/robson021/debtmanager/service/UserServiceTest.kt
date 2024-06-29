@@ -1,6 +1,6 @@
 package com.github.robson021.debtmanager.service
 
-import com.github.robson021.debtmanager.extensions.GoogleUserDetails
+import com.github.robson021.debtmanager.getTestUser
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -13,17 +13,18 @@ class UserServiceTest {
     @Autowired
     private lateinit var userService: UserService
 
-    private val googleUser = GoogleUserDetails("123", "test-user", "avatar", "scope", "test@mail.com")
+    private val googleUser = getTestUser()
 
     @Test
-    fun `saves and finds user`() {
-        runBlocking {
-            userService.addGoogleUserIfNotPresent(googleUser)
-            val u = userService.findUserBySub(googleUser.sub)
-            assertThat(u.sub).isEqualTo(googleUser.sub)
-            assertThat(u.name).isEqualTo(googleUser.name)
-            assertThat(u.email).isEqualTo(googleUser.email)
-        }
-    }
+    fun `saves new user once and then finds it`(): Unit = runBlocking {
+        userService.addGoogleUserIfNotPresent(googleUser)
+        userService.addGoogleUserIfNotPresent(googleUser)
+        userService.addGoogleUserIfNotPresent(googleUser)
 
+        val u = userService.findUserBySub(googleUser.sub)
+
+        assertThat(u.sub).isEqualTo(googleUser.sub)
+        assertThat(u.name).isEqualTo(googleUser.name)
+        assertThat(u.email).isEqualTo(googleUser.email)
+    }
 }

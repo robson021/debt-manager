@@ -34,4 +34,6 @@ data class GoogleUserDetails(
     val avatar: String,
     val scope: String,
     val email: String,
-)
+) {
+    fun toShortString() = "$name, $email"
+}
