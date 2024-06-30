@@ -5,6 +5,7 @@ import org.springframework.data.relational.core.mapping.Table
 
 @Table("GROUPS")
 data class Group(
-    @Id val id: Long,
-    val groupName: String,
+    @Id val id: Int,
+    val ownerId: Int,
+    val name: String,
 )

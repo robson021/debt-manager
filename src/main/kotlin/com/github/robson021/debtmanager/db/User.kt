@@ -6,7 +6,7 @@ import java.math.BigDecimal
 
 @Table("USERS")
 data class User(
-    @Id val id: Long,
+    @Id val id: Int,
     val sub: BigDecimal,
     val name: String,
     val email: String,

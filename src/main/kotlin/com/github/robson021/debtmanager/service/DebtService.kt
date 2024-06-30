@@ -1,7 +1,10 @@
 package com.github.robson021.debtmanager.service
 
+import com.github.robson021.debtmanager.db.Group
 import com.github.robson021.debtmanager.extensions.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.awaitSingle
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.r2dbc.core.awaitRowsUpdated
@@ -20,7 +23,7 @@ class DebtService(
             throw RuntimeException("Group name must be at least 3 characters")
         }
 
-        val userID = getUserBySub(owner.sub)
+        val userID = getUserIdBySub(owner.sub)
         createNewGroup(groupName, userID)
 
         val groupId = getGroupID(userID, groupName)
@@ -29,9 +32,13 @@ class DebtService(
         log.info("New group created: $groupName. Owner: ${owner.toShortString()}.")
     }
 
-    suspend fun listMyGroups(user: GoogleUserDetails) {
-        // TODO
-    }
+    suspend fun listUserGroups(user: GoogleUserDetails): List<Group> =
+        dbClient.sql("select * from GROUPS g inner join GROUP_USER gu on gu.user_id = :userId and gu.group_id = g.id order by g.name")
+            .bind("userId", getUserIdBySub(user.sub))
+            .mapProperties(Group::class.java)
+            .all()
+            .asFlow()
+            .toList()
 
     private suspend fun createNewGroup(groupName: String, userID: Int) {
         dbClient.sql("insert into GROUPS (name, owner_id) values (:name, :owner_id)")
@@ -49,7 +56,7 @@ class DebtService(
             .first()
             .awaitSingle()["id"] as Int
 
-    private suspend fun getUserBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
+    private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
         .bind("sub", sub)
         .fetch()
         .first()
