@@ -1,9 +1,11 @@
 package com.github.robson021.debtmanager.service
 
+import com.github.robson021.debtmanager.db.Debt
 import com.github.robson021.debtmanager.db.Group
 import com.github.robson021.debtmanager.db.User
-import com.github.robson021.debtmanager.extensions.GoogleUserDetails
+import com.github.robson021.debtmanager.extension.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
+import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.awaitSingle
@@ -12,6 +14,7 @@ import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.util.StringUtils
+import java.math.BigDecimal
 
 @Service
 @Transactional
@@ -55,6 +58,25 @@ class DebtService(
             .toList()
     }
 
+    suspend fun addDebt(lender: GoogleUserDetails, borrowerID: Int, groupID: Int, debt: BigDecimal) {
+        val lenderID = getUserIdBySub(lender.sub)
+        assertBothUsersAreInTheSameGroup(lenderID, borrowerID, groupID)
+
+        dbClient.sql("insert into DEBTS (amount, lender_id, borrower_id, group_id) values (:amount, :lender_id, :borrower_id, :group_id)")
+            .bind("amount", debt)
+            .bind("lender_id", lenderID)
+            .bind("borrower_id", borrowerID)
+            .bind("group_id", groupID)
+            .fetch()
+            .awaitRowsUpdated()
+    }
+
+    suspend fun finAllDebts() = dbClient.sql("select * from DEBTS")
+        .mapProperties(Debt::class.java)
+        .all()
+        .asFlow()
+        .toList()
+
     private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
         .bind("sub", sub)
         .fetch()
@@ -86,6 +108,26 @@ class DebtService(
             .rowsUpdated()
             .awaitSingle()
         log.debug("Added user $userID to group $groupId")
+    }
+
+    private suspend fun assertBothUsersAreInTheSameGroup(lenderID: Int, borrowerID: Int, groupID: Int) {
+        val sql = buildString {
+            append("(select 1 from GROUP_USER gu where gu.user_id = :lenderID and gu.group_id = :group_id)")
+            append(" union ")
+            append("(select 2 from GROUP_USER gu where gu.user_id = :borrowerID and gu.group_id = :group_id)")
+        }
+        val rows = dbClient.sql(sql)
+            .bind("group_id", groupID)
+            .bind("lenderID", lenderID)
+            .bind("borrowerID", borrowerID)
+            .fetch()
+            .all()
+            .asFlow()
+            .count()
+
+        if (rows != 2) {
+            throw RuntimeException("Users are not in the same group")
+        }
     }
 
     companion object {

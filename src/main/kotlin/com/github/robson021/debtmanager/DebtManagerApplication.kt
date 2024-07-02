@@ -1,6 +1,6 @@
 package com.github.robson021.debtmanager
 
-import com.github.robson021.debtmanager.extensions.userDetails
+import com.github.robson021.debtmanager.extension.userDetails
 import com.github.robson021.debtmanager.service.UserService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -19,8 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 @SpringBootApplication
 class DebtManagerApplication
 
-
-fun <R : Any> R.logger(): Lazy<Logger> = lazy { LoggerFactory.getLogger(this::class.java.name) }
+fun <R : Any> R.logger(): Lazy<Logger> = lazy { LoggerFactory.getLogger(this::class.java.name.removeSuffix("\$Companion")) }
 
 fun main(args: Array<String>) {
     runApplication<DebtManagerApplication>(*args)

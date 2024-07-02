@@ -1,7 +1,7 @@
 package com.github.robson021.debtmanager.service
 
 import com.github.robson021.debtmanager.db.User
-import com.github.robson021.debtmanager.extensions.GoogleUserDetails
+import com.github.robson021.debtmanager.extension.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.r2dbc.core.awaitRowsUpdated

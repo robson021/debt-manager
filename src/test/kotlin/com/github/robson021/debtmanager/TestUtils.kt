@@ -1,6 +1,6 @@
 package com.github.robson021.debtmanager
 
-import com.github.robson021.debtmanager.extensions.GoogleUserDetails
+import com.github.robson021.debtmanager.extension.GoogleUserDetails
 
 fun getTestUser() = GoogleUserDetails("123", "test-user", "avatar", "scope", "test@mail.com")
 fun getTestUser(id: String) = GoogleUserDetails(id, "test-user-$id", "avatar", "scope", "$id@mail.com")

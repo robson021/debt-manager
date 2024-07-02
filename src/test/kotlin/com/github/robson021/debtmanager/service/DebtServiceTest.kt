@@ -8,6 +8,7 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.dao.DuplicateKeyException
+import java.math.BigDecimal
 
 @SpringBootTest
 class DebtServiceTest {
@@ -86,6 +87,23 @@ class DebtServiceTest {
 
         val users = debtService.listAllUsersInGroup(groupID)
         assertThat(users).hasSize(3)
+    }
+
+    @Test
+    fun `add debt to other user`(): Unit = runBlocking {
+        val lender = getTestUser("lender")
+        val borrower = getTestUser("borrower")
+        userService.addGoogleUserIfNotPresent(lender)
+        userService.addGoogleUserIfNotPresent(borrower)
+
+        val groupID = debtService.createNewGroup(lender, "Borrowers and Lenders")
+        debtService.addUserToGroup(borrower, groupID)
+
+        val borrowerID = userService.findUserBySub(borrower.sub).id
+        debtService.addDebt(lender, borrowerID, groupID, BigDecimal("123.98"))
+
+        val allDebts = debtService.finAllDebts()
+        println(allDebts) // todo
     }
 
 }
