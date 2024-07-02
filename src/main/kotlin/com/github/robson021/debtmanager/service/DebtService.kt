@@ -1,6 +1,7 @@
 package com.github.robson021.debtmanager.service
 
 import com.github.robson021.debtmanager.db.Group
+import com.github.robson021.debtmanager.db.User
 import com.github.robson021.debtmanager.extensions.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
 import kotlinx.coroutines.flow.toList
@@ -18,7 +19,7 @@ class DebtService(
     private val dbClient: DatabaseClient,
 ) {
 
-    suspend fun createNewGroup(owner: GoogleUserDetails, groupName: String) {
+    suspend fun createNewGroup(owner: GoogleUserDetails, groupName: String): Int {
         if (!StringUtils.hasText(groupName) || groupName.length < 3) {
             throw RuntimeException("Group name must be at least 3 characters")
         }
@@ -29,7 +30,12 @@ class DebtService(
         val groupId = getGroupID(userID, groupName)
         addUserToGroup(userID, groupId)
 
-        log.info("New group created: $groupName. Owner: ${owner.toShortString()}.")
+        return groupId
+    }
+
+    suspend fun addUserToGroup(user: GoogleUserDetails, groupID: Int) {
+        val userID = getUserIdBySub(user.sub)
+        addUserToGroup(userID, groupID)
     }
 
     suspend fun listUserGroups(user: GoogleUserDetails): List<Group> =
@@ -40,12 +46,28 @@ class DebtService(
             .asFlow()
             .toList()
 
+    suspend fun listAllUsersInGroup(groupID: Int): List<User> {
+        return dbClient.sql("select * from USERS u inner join GROUP_USER gu on u.id = gu.user_id where gu.group_id = :groupId")
+            .bind("groupId", groupID)
+            .mapProperties(User::class.java)
+            .all()
+            .asFlow()
+            .toList()
+    }
+
+    private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
+        .bind("sub", sub)
+        .fetch()
+        .first()
+        .awaitSingle()["id"] as Int
+
     private suspend fun createNewGroup(groupName: String, userID: Int) {
         dbClient.sql("insert into GROUPS (name, owner_id) values (:name, :owner_id)")
             .bind("name", groupName)
             .bind("owner_id", userID)
             .fetch()
             .awaitRowsUpdated()
+        log.debug("New group created: $groupName. Owner: $userID.")
     }
 
     private suspend fun getGroupID(ownerID: Int, groupName: String) =
@@ -56,12 +78,6 @@ class DebtService(
             .first()
             .awaitSingle()["id"] as Int
 
-    private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
-        .bind("sub", sub)
-        .fetch()
-        .first()
-        .awaitSingle()["id"] as Int
-
     private suspend fun addUserToGroup(userID: Int, groupId: Int) {
         dbClient.sql("insert into GROUP_USER (user_id, group_id) values (:user_id, :group_id)")
             .bind("user_id", userID)
@@ -69,6 +85,7 @@ class DebtService(
             .fetch()
             .rowsUpdated()
             .awaitSingle()
+        log.debug("Added user $userID to group $groupId")
     }
 
     companion object {

@@ -70,4 +70,22 @@ class DebtServiceTest {
         assertThat(groups[2].name).isEqualTo("Test Group 3")
     }
 
+    @Test
+    fun `add users to existing group`(): Unit = runBlocking {
+        val testUser1 = getTestUser("aaa")
+        val testUser2 = getTestUser("bbb")
+        val testUser3 = getTestUser("ccc")
+        userService.addGoogleUserIfNotPresent(testUser1)
+        userService.addGoogleUserIfNotPresent(testUser2)
+        userService.addGoogleUserIfNotPresent(testUser3)
+
+        val groupID = debtService.createNewGroup(testUser1, "Test Group With Multiple Users")
+
+        debtService.addUserToGroup(testUser2, groupID)
+        debtService.addUserToGroup(testUser3, groupID)
+
+        val users = debtService.listAllUsersInGroup(groupID)
+        assertThat(users).hasSize(3)
+    }
+
 }
