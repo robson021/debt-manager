@@ -71,11 +71,13 @@ class DebtService(
             .awaitRowsUpdated()
     }
 
-    suspend fun finAllDebts() = dbClient.sql("select * from DEBTS")
-        .mapProperties(Debt::class.java)
-        .all()
-        .asFlow()
-        .toList()
+    suspend fun finUserDebts(user: GoogleUserDetails) =
+        dbClient.sql("select * from DEBTS d where d.borrower_id = (select id from USERS u where u.sub = :sub)")
+            .bind("sub", user.sub)
+            .mapProperties(Debt::class.java)
+            .all()
+            .asFlow()
+            .toList()
 
     private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
         .bind("sub", sub)

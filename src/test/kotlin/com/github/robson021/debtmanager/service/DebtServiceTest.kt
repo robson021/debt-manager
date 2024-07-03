@@ -20,7 +20,7 @@ class DebtServiceTest {
     private lateinit var userService: UserService
 
     @Test
-    fun `creates new group with its owner`() = runBlocking {
+    fun `creates new group with its owner`(): Unit = runBlocking {
         val testUser = getTestUser("111")
         userService.addGoogleUserIfNotPresent(testUser)
 
@@ -91,6 +91,7 @@ class DebtServiceTest {
 
     @Test
     fun `add debt to other user`(): Unit = runBlocking {
+        // given
         val lender = getTestUser("lender")
         val borrower = getTestUser("borrower")
         userService.addGoogleUserIfNotPresent(lender)
@@ -100,10 +101,15 @@ class DebtServiceTest {
         debtService.addUserToGroup(borrower, groupID)
 
         val borrowerID = userService.findUserBySub(borrower.sub).id
-        debtService.addDebt(lender, borrowerID, groupID, BigDecimal("123.98"))
+        val debt = BigDecimal("123.98")
 
-        val allDebts = debtService.finAllDebts()
-        println(allDebts) // todo
+        // when
+        debtService.addDebt(lender, borrowerID, groupID, debt)
+
+        // then
+        val allDebts = debtService.finUserDebts(borrower)
+        assertThat(allDebts).hasSize(1)
+        assertThat(allDebts[0].amount).isEqualTo(debt)
     }
 
 }
