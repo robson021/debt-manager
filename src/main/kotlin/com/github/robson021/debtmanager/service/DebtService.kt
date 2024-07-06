@@ -11,6 +11,7 @@ import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.awaitSingle
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.r2dbc.core.awaitRowsUpdated
+import org.springframework.r2dbc.core.awaitSingle
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.util.StringUtils
@@ -56,6 +57,17 @@ class DebtService(
             .all()
             .asFlow()
             .toList()
+    }
+
+    suspend fun getUserBalance(user: GoogleUserDetails): BigDecimal {
+        val userID = getUserIdBySub(user.sub)
+        val whereLender = "(coalesce ((select sum (amount) from DEBTS d where d.lender_id = :lender_id), 0))"
+        val whereBorrower = whereLender.replace("lender_id", "borrower_id")
+        return dbClient.sql("select ($whereLender - $whereBorrower) as diff")
+            .bind("lender_id", userID)
+            .bind("borrower_id", userID)
+            .fetch()
+            .awaitSingle()["diff"] as BigDecimal
     }
 
     suspend fun addDebt(lender: GoogleUserDetails, borrowerID: Int, groupID: Int, debt: BigDecimal) {

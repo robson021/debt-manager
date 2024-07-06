@@ -1,5 +1,6 @@
 package com.github.robson021.debtmanager.service
 
+import com.github.robson021.debtmanager.addUsersBatch
 import com.github.robson021.debtmanager.getTestUser
 import kotlinx.coroutines.runBlocking
 import org.assertj.core.api.Assertions.assertThat
@@ -94,8 +95,7 @@ class DebtServiceTest {
         // given
         val lender = getTestUser("lender")
         val borrower = getTestUser("borrower")
-        userService.addGoogleUserIfNotPresent(lender)
-        userService.addGoogleUserIfNotPresent(borrower)
+        userService.addUsersBatch(lender, borrower)
 
         val groupID = debtService.createNewGroup(lender, "Borrowers and Lenders")
         debtService.addUserToGroup(borrower, groupID)
@@ -110,6 +110,12 @@ class DebtServiceTest {
         val allDebts = debtService.finUserDebts(borrower)
         assertThat(allDebts).hasSize(1)
         assertThat(allDebts[0].amount).isEqualTo(debt)
+
+        val balance1 = debtService.getUserBalance(lender)
+        val balance2 = debtService.getUserBalance(borrower)
+
+        assertThat(balance1).isEqualTo(debt)
+        assertThat(balance2).isEqualTo(debt.negate())
     }
 
 }
