@@ -8,4 +8,5 @@ data class Group(
     @Id val id: Int,
     val ownerId: Int,
     val name: String,
+    val invitationCode: String,
 )

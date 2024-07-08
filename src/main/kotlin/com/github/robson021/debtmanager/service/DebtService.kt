@@ -16,11 +16,13 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.util.StringUtils
 import java.math.BigDecimal
+import java.util.*
 
 @Service
 @Transactional
 class DebtService(
     private val dbClient: DatabaseClient,
+    private val userCache: UserCache,
 ) {
 
     suspend fun createNewGroup(owner: GoogleUserDetails, groupName: String): Int {
@@ -28,7 +30,7 @@ class DebtService(
             throw RuntimeException("Group name must be at least 3 characters")
         }
 
-        val userID = getUserIdBySub(owner.sub)
+        val userID = userCache.getUserId(owner.sub)
         createNewGroup(groupName, userID)
 
         val groupId = getGroupID(userID, groupName)
@@ -37,14 +39,30 @@ class DebtService(
         return groupId
     }
 
-    suspend fun addUserToGroup(user: GoogleUserDetails, groupID: Int) {
-        val userID = getUserIdBySub(user.sub)
-        addUserToGroup(userID, groupID)
+    suspend fun addUserToGroupWithCodeValidation(user: GoogleUserDetails, ownerID: Int, invitationCode: String) {
+        val groupId = dbClient.sql("select id from GROUPS g where g.owner_id = :owner_id and g.invitation_code = :invitation_code")
+            .bind("owner_id", ownerID)
+            .bind("invitation_code", invitationCode)
+            .fetch()
+            .awaitSingle()["id"] as Int
+        log.debug("User '${user.toShortString()}' has passed validation of joining group with id $groupId.")
+        addUserToGroup(userCache.getUserId(user.sub), groupId)
+    }
+
+    suspend fun addUserToGroup(user: GoogleUserDetails, groupID: Int) = addUserToGroup(userCache.getUserId(user.sub), groupID)
+
+    private suspend fun addUserToGroup(userID: Int, groupId: Int) {
+        dbClient.sql("insert into GROUP_USER (user_id, group_id) values (:user_id, :group_id)")
+            .bind("user_id", userID)
+            .bind("group_id", groupId)
+            .fetch()
+            .awaitRowsUpdated()
+        log.debug("Added user $userID to group $groupId")
     }
 
     suspend fun listUserGroups(user: GoogleUserDetails): List<Group> =
         dbClient.sql("select * from GROUPS g inner join GROUP_USER gu on gu.user_id = :userId and gu.group_id = g.id order by g.name")
-            .bind("userId", getUserIdBySub(user.sub))
+            .bind("userId", userCache.getUserId(user.sub))
             .mapProperties(Group::class.java)
             .all()
             .asFlow()
@@ -60,7 +78,7 @@ class DebtService(
     }
 
     suspend fun getUserBalance(user: GoogleUserDetails): BigDecimal {
-        val userID = getUserIdBySub(user.sub)
+        val userID = userCache.getUserId(user.sub)
         val whereLender = "(coalesce ((select sum (amount) from DEBTS d where d.lender_id = :lender_id), 0))"
         val whereBorrower = whereLender.replace("lender_id", "borrower_id")
         return dbClient.sql("select ($whereLender - $whereBorrower) as diff")
@@ -71,7 +89,7 @@ class DebtService(
     }
 
     suspend fun addDebt(lender: GoogleUserDetails, borrowerID: Int, groupID: Int, debt: BigDecimal) {
-        val lenderID = getUserIdBySub(lender.sub)
+        val lenderID = userCache.getUserId(lender.sub)
         assertBothUsersAreInTheSameGroup(lenderID, borrowerID, groupID)
 
         dbClient.sql("insert into DEBTS (amount, lender_id, borrower_id, group_id) values (:amount, :lender_id, :borrower_id, :group_id)")
@@ -91,19 +109,16 @@ class DebtService(
             .asFlow()
             .toList()
 
-    private suspend fun getUserIdBySub(sub: String) = dbClient.sql("select id from USERS u where u.sub = :sub")
-        .bind("sub", sub)
-        .fetch()
-        .first()
-        .awaitSingle()["id"] as Int
-
-    private suspend fun createNewGroup(groupName: String, userID: Int) {
-        dbClient.sql("insert into GROUPS (name, owner_id) values (:name, :owner_id)")
+    private suspend fun createNewGroup(groupName: String, userID: Int): String {
+        val code = UUID.randomUUID().toString()
+        dbClient.sql("insert into GROUPS (name, owner_id, invitation_code) values (:name, :owner_id, :invitation_code)")
             .bind("name", groupName)
             .bind("owner_id", userID)
+            .bind("invitation_code", code)
             .fetch()
             .awaitRowsUpdated()
-        log.debug("New group created: $groupName. Owner: $userID.")
+        log.debug("New group created: $groupName. Owner: $userID. Invitation code: $code")
+        return code
     }
 
     private suspend fun getGroupID(ownerID: Int, groupName: String) =
@@ -113,16 +128,6 @@ class DebtService(
             .fetch()
             .first()
             .awaitSingle()["id"] as Int
-
-    private suspend fun addUserToGroup(userID: Int, groupId: Int) {
-        dbClient.sql("insert into GROUP_USER (user_id, group_id) values (:user_id, :group_id)")
-            .bind("user_id", userID)
-            .bind("group_id", groupId)
-            .fetch()
-            .rowsUpdated()
-            .awaitSingle()
-        log.debug("Added user $userID to group $groupId")
-    }
 
     private suspend fun assertBothUsersAreInTheSameGroup(lenderID: Int, borrowerID: Int, groupID: Int) {
         val sql = buildString {

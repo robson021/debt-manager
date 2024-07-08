@@ -118,4 +118,21 @@ class DebtServiceTest {
         assertThat(balance2).isEqualTo(debt.negate())
     }
 
+    @Test
+    fun `add new user to existing group using invitation code`(): Unit = runBlocking {
+        val owner = getTestUser("owner")
+        val newUser = getTestUser("newcomer")
+        userService.addUsersBatch(owner, newUser)
+
+        val groupID = debtService.createNewGroup(owner, "Group with invitation code")
+        val ownerID = userService.findUserBySub(owner.sub).id
+        val invitationCode = debtService.listUserGroups(owner).first().invitationCode
+
+        debtService.addUserToGroupWithCodeValidation(newUser, ownerID, invitationCode)
+
+        val users = debtService.listAllUsersInGroup(groupID)
+        assertThat(users).hasSize(2)
+        assertThat(users.map { it.email }).containsExactlyInAnyOrder(owner.email, newUser.email)
+    }
+
 }
