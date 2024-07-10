@@ -135,4 +135,27 @@ class DebtServiceTest {
         assertThat(users.map { it.email }).containsExactlyInAnyOrder(owner.email, newUser.email)
     }
 
+    @Test
+    fun `add split payment debt`(): Unit = runBlocking {
+        val owner = getTestUser("split-payment-lender")
+        val borrower1 = getTestUser("borrower-1")
+        val borrower2 = getTestUser("borrower-2")
+        userService.addUsersBatch(owner, borrower1, borrower2)
+
+        val borrowerId1 = userService.findUserBySub(borrower1.sub).id
+        val borrowerId2 = userService.findUserBySub(borrower2.sub).id
+
+        val groupID = debtService.createNewGroup(owner, "split-payment")
+        debtService.addUserToGroup(borrower1, groupID)
+        debtService.addUserToGroup(borrower2, groupID)
+
+        debtService.addSplitPaymentDebt(owner, groupID, BigDecimal("100"), borrowerId1, borrowerId2)
+
+        arrayOf(borrower1, borrower2).forEach {
+            val debts = debtService.finUserDebts(it)
+            assertThat(debts).hasSize(1)
+            assertThat(debts[0].amount).isEqualTo(BigDecimal("33.33"))
+        }
+    }
+
 }

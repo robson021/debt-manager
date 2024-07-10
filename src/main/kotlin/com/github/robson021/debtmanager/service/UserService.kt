@@ -3,16 +3,33 @@ package com.github.robson021.debtmanager.service
 import com.github.robson021.debtmanager.db.User
 import com.github.robson021.debtmanager.extension.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
+import kotlinx.coroutines.reactor.awaitSingle
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.r2dbc.core.awaitSingle
 import org.springframework.r2dbc.core.awaitSingleOrNull
 import org.springframework.stereotype.Service
+import java.util.concurrent.ConcurrentHashMap
+
+private class UserCache(private val dbClient: DatabaseClient) {
+    private val cache = ConcurrentHashMap<String, Int>()
+    suspend fun getUserId(sub: String): Int {
+        return cache.getOrPut(sub) {
+            return dbClient.sql("select id from USERS u where u.sub = :sub")
+                .bind("sub", sub)
+                .fetch()
+                .first()
+                .awaitSingle()["id"] as Int
+        }
+    }
+}
 
 @Service
 class UserService(
     private val dbClient: DatabaseClient,
 ) {
+    private val userCache = UserCache(dbClient)
+
     suspend fun addGoogleUserIfNotPresent(user: GoogleUserDetails) {
         val userSub = user.sub
 
@@ -45,6 +62,8 @@ class UserService(
         log.info("Found user: $user.")
         return user
     }
+
+    suspend fun getUserId(sub: String) = userCache.getUserId(sub)
 
     companion object {
         private val log by logger()

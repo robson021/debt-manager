@@ -16,13 +16,14 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.util.StringUtils
 import java.math.BigDecimal
+import java.math.MathContext
 import java.util.*
 
 @Service
 @Transactional
 class DebtService(
     private val dbClient: DatabaseClient,
-    private val userCache: UserCache,
+    private val userService: UserService,
 ) {
 
     suspend fun createNewGroup(owner: GoogleUserDetails, groupName: String): Int {
@@ -30,7 +31,7 @@ class DebtService(
             throw RuntimeException("Group name must be at least 3 characters")
         }
 
-        val userID = userCache.getUserId(owner.sub)
+        val userID = userService.getUserId(owner.sub)
         createNewGroup(groupName, userID)
 
         val groupId = getGroupID(userID, groupName)
@@ -46,10 +47,10 @@ class DebtService(
             .fetch()
             .awaitSingle()["id"] as Int
         log.debug("User '${user.toShortString()}' has passed validation of joining group with id $groupId.")
-        addUserToGroup(userCache.getUserId(user.sub), groupId)
+        addUserToGroup(userService.getUserId(user.sub), groupId)
     }
 
-    suspend fun addUserToGroup(user: GoogleUserDetails, groupID: Int) = addUserToGroup(userCache.getUserId(user.sub), groupID)
+    suspend fun addUserToGroup(user: GoogleUserDetails, groupID: Int) = addUserToGroup(userService.getUserId(user.sub), groupID)
 
     private suspend fun addUserToGroup(userID: Int, groupId: Int) {
         dbClient.sql("insert into GROUP_USER (user_id, group_id) values (:user_id, :group_id)")
@@ -62,7 +63,7 @@ class DebtService(
 
     suspend fun listUserGroups(user: GoogleUserDetails): List<Group> =
         dbClient.sql("select * from GROUPS g inner join GROUP_USER gu on gu.user_id = :userId and gu.group_id = g.id order by g.name")
-            .bind("userId", userCache.getUserId(user.sub))
+            .bind("userId", userService.getUserId(user.sub))
             .mapProperties(Group::class.java)
             .all()
             .asFlow()
@@ -78,7 +79,7 @@ class DebtService(
     }
 
     suspend fun getUserBalance(user: GoogleUserDetails): BigDecimal {
-        val userID = userCache.getUserId(user.sub)
+        val userID = userService.getUserId(user.sub)
         val whereLender = "(coalesce ((select sum (amount) from DEBTS d where d.lender_id = :lender_id), 0))"
         val whereBorrower = whereLender.replace("lender_id", "borrower_id")
         return dbClient.sql("select ($whereLender - $whereBorrower) as diff")
@@ -88,8 +89,13 @@ class DebtService(
             .awaitSingle()["diff"] as BigDecimal
     }
 
+    suspend fun addSplitPaymentDebt(lender: GoogleUserDetails, groupID: Int, debt: BigDecimal, vararg borrowerIDs: Int) {
+        val toSplit = borrowerIDs.size + 1
+        borrowerIDs.forEach { addDebt(lender, it, groupID, debt.divide(toSplit.toBigDecimal(), MathContext.DECIMAL32)) }
+    }
+
     suspend fun addDebt(lender: GoogleUserDetails, borrowerID: Int, groupID: Int, debt: BigDecimal) {
-        val lenderID = userCache.getUserId(lender.sub)
+        val lenderID = userService.getUserId(lender.sub)
         assertBothUsersAreInTheSameGroup(lenderID, borrowerID, groupID)
 
         dbClient.sql("insert into DEBTS (amount, lender_id, borrower_id, group_id) values (:amount, :lender_id, :borrower_id, :group_id)")
