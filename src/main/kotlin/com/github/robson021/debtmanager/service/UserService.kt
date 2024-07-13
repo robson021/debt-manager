@@ -1,6 +1,7 @@
 package com.github.robson021.debtmanager.service
 
 import com.github.robson021.debtmanager.db.User
+import com.github.robson021.debtmanager.debug
 import com.github.robson021.debtmanager.extension.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
 import kotlinx.coroutines.reactor.awaitSingle
@@ -9,19 +10,34 @@ import org.springframework.r2dbc.core.awaitRowsUpdated
 import org.springframework.r2dbc.core.awaitSingle
 import org.springframework.r2dbc.core.awaitSingleOrNull
 import org.springframework.stereotype.Service
-import java.util.concurrent.ConcurrentHashMap
 
 private class UserCache(private val dbClient: DatabaseClient) {
-    private val cache = ConcurrentHashMap<String, Int>()
+    private val cache = HashMap<String, Int>()
     suspend fun getUserId(sub: String): Int {
         return cache.getOrPut(sub) {
-            return dbClient.sql("select id from USERS u where u.sub = :sub")
+            val id = dbClient.sql("select id from USERS u where u.sub = :sub")
                 .bind("sub", sub)
                 .fetch()
                 .first()
                 .awaitSingle()["id"] as Int
+            log.debug { "Fetched user id: $id for sub: $sub. It will be added to the cache." }
+            return id
         }
     }
+
+    companion object {
+        val log by logger()
+    }
+}
+
+private fun <K, V> MutableMap<K, V>.getOrPutIfAbsent(key: K, computation: () -> V): V {
+    val result = this[key]
+    if (result != null) {
+        return result
+    }
+    val v = computation()
+    this.put(key, v)
+    return v
 }
 
 @Service

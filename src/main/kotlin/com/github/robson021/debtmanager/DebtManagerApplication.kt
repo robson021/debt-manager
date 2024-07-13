@@ -21,6 +21,10 @@ class DebtManagerApplication
 
 fun <R : Any> R.logger(): Lazy<Logger> = lazy { LoggerFactory.getLogger(this::class.java.name.removeSuffix("\$Companion")) }
 
+fun Logger.debug(callback: () -> String) {
+    if (isDebugEnabled) debug(callback())
+}
+
 fun main(args: Array<String>) {
     runApplication<DebtManagerApplication>(*args)
 }
