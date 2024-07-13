@@ -45,6 +45,9 @@ class PublicController(
         userService.addGoogleUserIfNotPresent(token.userDetails())
     }
 
+    @GetMapping("/user-id")
+    suspend fun getUserId(token: OAuth2AuthenticationToken) = userService.getUserId(token.userDetails().sub)
+
 }
 
 @RestController

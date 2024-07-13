@@ -3,6 +3,7 @@ package com.github.robson021.debtmanager.service
 import com.github.robson021.debtmanager.db.Debt
 import com.github.robson021.debtmanager.db.Group
 import com.github.robson021.debtmanager.db.User
+import com.github.robson021.debtmanager.debug
 import com.github.robson021.debtmanager.extension.GoogleUserDetails
 import com.github.robson021.debtmanager.logger
 import kotlinx.coroutines.flow.count
@@ -46,7 +47,7 @@ class DebtService(
             .bind("invitation_code", invitationCode)
             .fetch()
             .awaitSingle()["id"] as Int
-        log.debug("User '${user.toShortString()}' has passed validation of joining group with id $groupId.")
+        log.debug { "User '${user.toShortString()}' has passed validation of joining group with id $groupId." }
         addUserToGroup(userService.getUserId(user.sub), groupId)
     }
 
@@ -58,7 +59,7 @@ class DebtService(
             .bind("group_id", groupId)
             .fetch()
             .awaitRowsUpdated()
-        log.debug("Added user $userID to group $groupId")
+        log.debug { "Added user $userID to group $groupId" }
     }
 
     suspend fun listUserGroups(user: GoogleUserDetails): List<Group> =
@@ -123,7 +124,7 @@ class DebtService(
             .bind("invitation_code", code)
             .fetch()
             .awaitRowsUpdated()
-        log.debug("New group created: $groupName. Owner: $userID. Invitation code: $code")
+        log.debug { "New group created: $groupName. Owner: $userID. Invitation code: $code" }
         return code
     }
 

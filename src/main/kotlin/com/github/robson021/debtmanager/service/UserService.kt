@@ -21,23 +21,13 @@ private class UserCache(private val dbClient: DatabaseClient) {
                 .first()
                 .awaitSingle()["id"] as Int
             log.debug { "Fetched user id: $id for sub: $sub. It will be added to the cache." }
-            return id
+            id
         }
     }
 
     companion object {
         val log by logger()
     }
-}
-
-private fun <K, V> MutableMap<K, V>.getOrPutIfAbsent(key: K, computation: () -> V): V {
-    val result = this[key]
-    if (result != null) {
-        return result
-    }
-    val v = computation()
-    this.put(key, v)
-    return v
 }
 
 @Service
