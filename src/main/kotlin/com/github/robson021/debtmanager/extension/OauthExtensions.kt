@@ -16,7 +16,7 @@ fun OAuth2AuthenticationToken.userDetails(): GoogleUserDetails {
 
     return when {
         isGoogle -> fromGoogle(attr, scope, email as String)
-        else -> throw RuntimeException("Unknown OAuth2 authentication token")
+        else -> throw RuntimeException("Unknown OAuth2 authentication token: $email")
     }
 }
 
